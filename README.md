@@ -1,4 +1,5 @@
 # FourierMesh
+![alt text](tests/Artifacts/Dirac/david_dft.png)
 
 A Python library for computing and visualising the continuous Fourier transform of 3D point clouds.
 
@@ -6,7 +7,7 @@ A Python library for computing and visualising the continuous Fourier transform 
 
 ### Representing a point cloud as a distribution
 
-A point cloud is not a function in the classical sense — it has no well-defined value between the points. To apply Fourier analysis, we embed it in the space of tempered distributions by modelling it as a sum of Dirac deltas:
+A point cloud is not a function in the classical sense, it has no well-defined value between the points. To apply Fourier analysis, we embed it in the space of tempered distributions by modelling it as a sum of Dirac deltas:
 
 $$f(x, y, z) = \sum_{n=1}^{N} \delta(x - x_n)\, \delta(y - y_n)\, \delta(z - z_n)$$
 
@@ -62,9 +63,10 @@ $$\tilde{f}(x, y, z_0) = \sum_{j} F(k_{x,j}, k_{y,j}, k_{z,j})\, e^{i(k_{x,j} x 
 
 The factor $e^{i k_{z,j} z_0}$ modifies the phase of each $(k_x, k_y)$ sinusoid depending on its $k_z$ frequency and the chosen height $z_0$. Sweeping $z_0$ from the bottom to the top of the object produces a stack of 2D cross-sections that together describe the full 3D structure.
 
-### Band limiting and the Gibbs phenomenon
 
-Because the reconstruction sums only up to a maximum frequency $k_{\max}$ in $k_x$, $k_y$, and $k_z$, the result $\tilde{f}(x, y, z)$ is band-limited. Sharp features — the flat faces of a cube at fixed $x$, $y$, or $z$, or the equatorial ring of a sphere — are effectively convolved with a sinc kernel of width $\sim 2\pi / k_{\max}$ along each spatial axis. Increasing $k_{\max}$ sharpens edges in $x$, $y$, and $z$ at the cost of higher memory and compute. Oscillatory ringing near those edges is the Gibbs phenomenon — an unavoidable consequence of truncating the Fourier series at finite $k_{\max}$.
+![alt text](tests/Artifacts/Dirac/cube_dft.png)
+![alt text](tests/Artifacts/Dirac/cube_slices.png)
+
 
 ### Computational complexity and memory
 
@@ -72,9 +74,7 @@ Evaluating $F(k_x, k_y, k_z)$ on a grid of $N_k$ points per axis requires formin
 
 $$\Phi_{jn} = k_{x,j} x_n + k_{y,j} y_n + k_{z,j} z_n \quad \in \mathbb{R}^{N_k^3 \times N}$$
 
-and computing $F = e^{-i\Phi} \mathbf{1}_N$. This costs $O(N_k^3 \cdot N)$ in both time and memory. For $N_k = 40$ and $N = 2000$ this is $64000 \times 2000 \approx 10^8$ values — roughly 1 GB. The implementation processes the $k_x, k_y, k_z$ grid in chunks of size $C$, reducing peak memory to $O(C \cdot N)$ regardless of $N_k$.
-
-This differs fundamentally from the FFT: the FFT requires points on a regular $x, y, z$ grid and runs in $O(N_k^3 \log N_k)$, whereas this approach is exact for **arbitrary $(x_n, y_n, z_n)$ positions** at $O(N_k^3 \cdot N)$.
+and computing $F = e^{-i\Phi} \mathbf{1}_N$. This costs $O(N_k^3 \cdot N)$ in both time and memory. For $N_k = 40$ and $N = 2000$ this is $64000 \times 2000 \approx 10^8$ values: roughly 1 GB. You will see this yourself when you try to run the tests locally.
 
 ## Installation
 
