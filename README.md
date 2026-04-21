@@ -75,31 +75,3 @@ Evaluating $F(k_x, k_y, k_z)$ on a grid of $N_k$ points per axis requires formin
 $$\Phi_{jn} = k_{x,j} x_n + k_{y,j} y_n + k_{z,j} z_n \quad \in \mathbb{R}^{N_k^3 \times N}$$
 
 and computing $F = e^{-i\Phi} \mathbf{1}_N$. This costs $O(N_k^3 \cdot N)$ in both time and memory. For $N_k = 40$ and $N = 2000$ this is $64000 \times 2000 \approx 10^8$ values: roughly 1 GB. You will see this yourself when you try to run the tests locally.
-
-## Installation
-
-```bash
-git clone https://github.com/yourname/FourierMesh.git
-cd FourierMesh
-pip install -e .
-```
-
-## Quick start
-
-```python
-import numpy as np
-from FourierMesh.core import cartesian_DFT_dirac
-from FourierMesh.utils import hollow_cube_points
-
-points = hollow_cube_points(n_per_edge=20)
-
-# evaluate F(kx, ky, kz) on a 40x40x40 grid from -6 to 6 rad/unit
-k = np.linspace(-6, 6, 40)
-F = cartesian_DFT_dirac(points, k, k, k)
-```
-
-## Dependencies
-
-- `numpy`
-- `numpy-stl`
-- `matplotlib`
