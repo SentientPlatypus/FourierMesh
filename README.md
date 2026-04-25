@@ -75,6 +75,7 @@ Evaluating $F(k_x, k_y, k_z)$ on a grid of $N_k$ points per axis requires formin
 $$\Phi_{jn} = k_{x,j} x_n + k_{y,j} y_n + k_{z,j} z_n \quad \in \mathbb{R}^{N_k^3 \times N}$$
 
 and computing $F = e^{-i\Phi} \mathbf{1}_N$. This costs $O(N_k^3 \cdot N)$ in both time and memory. For $N_k = 40$ and $N = 2000$ this is $64000 \times 2000 \approx 10^8$ values: roughly 1 GB. You will see this yourself when you try to run the tests locally.
+<<<<<<< HEAD
 
 ## Installation
 
@@ -119,3 +120,5 @@ F = cartesian_DFT_dirac(points, k, k, k)
 
 - Runtime: `numpy`, `numpy-stl`
 - Development/demo: `pytest`, `matplotlib`
+=======
+>>>>>>> 7d505e3dca4023f9ca4ab282916915e9a4b82cbd
