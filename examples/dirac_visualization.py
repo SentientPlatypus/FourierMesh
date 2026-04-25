@@ -1,5 +1,20 @@
+"""Run from repo root: ``python examples/dirac_visualization.py``."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
+
+# Repo checkout without ``pip install -e .``: add ``src`` so ``FourierMesh`` resolves.
+_repo_root = Path(__file__).resolve().parent.parent
+_src = _repo_root / "src"
+if _src.is_dir():
+    src_str = str(_src)
+    if src_str not in sys.path:
+        sys.path.insert(0, src_str)
 
 from FourierMesh import cartesian_DFT_dirac
 
