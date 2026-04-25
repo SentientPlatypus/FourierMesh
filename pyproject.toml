@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "FourierMesh"
+version = "0.1.0"
+description = "Compute and analyze continuous Fourier transforms of 3D point clouds."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "FourierMesh contributors" }
+]
+dependencies = [
+  "numpy>=1.24",
+  "numpy-stl>=3.1"
+]
+keywords = ["fourier-transform", "point-cloud", "geometry", "3d", "signal-processing"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "matplotlib>=3.8"
+]
+
+[project.urls]
+Homepage = "https://github.com/yourname/FourierMesh"
+Repository = "https://github.com/yourname/FourierMesh"
+Issues = "https://github.com/yourname/FourierMesh/issues"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -81,25 +81,41 @@ and computing $F = e^{-i\Phi} \mathbf{1}_N$. This costs $O(N_k^3 \cdot N)$ in bo
 ```bash
 git clone https://github.com/yourname/FourierMesh.git
 cd FourierMesh
-pip install -e .
+python -m pip install -e .
+```
+
+For development (tests + plotting example dependencies):
+
+```bash
+python -m pip install -e ".[dev]"
 ```
 
 ## Quick start
 
 ```python
 import numpy as np
-from FourierMesh.core import cartesian_DFT_dirac
-from FourierMesh.utils import hollow_cube_points
+from FourierMesh import cartesian_DFT_dirac
 
-points = hollow_cube_points(n_per_edge=20)
+# toy point cloud
+points = np.array(
+    [
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+    ]
+)
 
 # evaluate F(kx, ky, kz) on a 40x40x40 grid from -6 to 6 rad/unit
 k = np.linspace(-6, 6, 40)
 F = cartesian_DFT_dirac(points, k, k, k)
 ```
 
+## Examples
+
+- Run tests with: `pytest`
+- Run visualization demo with: `python examples/dirac_visualization.py`
+
 ## Dependencies
 
-- `numpy`
-- `numpy-stl`
-- `matplotlib`
+- Runtime: `numpy`, `numpy-stl`
+- Development/demo: `pytest`, `matplotlib`
