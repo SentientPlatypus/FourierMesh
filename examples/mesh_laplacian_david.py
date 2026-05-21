@@ -11,11 +11,13 @@ The STL is resolved in order: ``FOURIERMESH_DAVID_STL``, ``tests/models/DavidSta
 
 Eigendecomposition is ``O(N^3)``; use ``--max-faces`` to cap triangle count for interactive use.
 
-Writes the reconstructed mesh to ``tests/models/reconstructed_david_k_<k>_.stl`` by default
-(override with ``--output-stl``) using ``numpy-stl``. Before export, faces are cleaned
-(degenerate / duplicate removal); install ``trimesh`` (``pip install -e ".[slicer]"``) and
-keep the default repair path to improve winding for slicers (e.g. Bambu Studio). Use
-``--no-repair`` to skip ``trimesh``. Use ``--stl-format ascii`` if needed.
+Writes the plot to ``tests/Artifacts/Dirac/david_mesh_fourier_compare_k_<k>.png`` and the
+reconstructed mesh to ``tests/models/reconstructed_david_k_<k>_.stl`` by default
+(override with ``--output`` and ``--output-stl``) using ``numpy-stl``. Before export,
+faces are cleaned (degenerate / duplicate removal); install ``trimesh``
+(``pip install -e ".[slicer]"``) and keep the default repair path to improve winding
+for slicers (e.g. Bambu Studio). Use ``--no-repair`` to skip ``trimesh``. Use
+``--stl-format ascii`` if needed.
 """
 
 from __future__ import annotations
@@ -620,7 +622,7 @@ def main() -> None:
         "--output",
         type=Path,
         default=None,
-        help="Optional PNG path (e.g. tests/Artifacts/Dirac/david_recon.png)",
+        help="PNG path for the comparison plot (default: tests/Artifacts/Dirac/david_mesh_fourier_compare_k_<k>.png)",
     )
     p.add_argument(
         "--output-stl",
@@ -708,7 +710,13 @@ def main() -> None:
         _save_mesh_stl(v_exp, f_exp, stl_out, fmt=args.stl_format)
         print(f"Wrote reconstructed STL: {stl_out}")
 
-    _plot_pair(v_mesh, v_recon, f_mesh, k_eff, args.output, mesh_label)
+    plot_out = args.output
+    if plot_out is None:
+        plot_out = _repo_root / "tests" / "Artifacts" / "Dirac" / f"david_mesh_fourier_compare_k_{k_eff}.png"
+    else:
+        plot_out = Path(plot_out).expanduser().resolve()
+
+    _plot_pair(v_mesh, v_recon, f_mesh, k_eff, plot_out, mesh_label)
 
 
 if __name__ == "__main__":
