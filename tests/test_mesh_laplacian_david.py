@@ -8,9 +8,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from FourierMesh.utils import (
+from FourierMesh import (
     inverse_mesh_fourier,
-    load_stl_as_vertices_faces,
+    load_mesh_stl,
     mesh_fourier_laplacian,
 )
 
@@ -49,7 +49,7 @@ def test_mesh_laplacian_inverse_fourier_round_trip_on_david_submesh():
     geometry. Full mesh eigendecomposition is O(N^3); we keep N modest.
     """
     stl_path = _david_stl_path()
-    vertices, faces = load_stl_as_vertices_faces(str(stl_path), dedupe=True)
+    vertices, faces = load_mesh_stl(str(stl_path), dedupe=True)
 
     max_faces = 80
     v_sub, f_sub = _submesh(vertices, faces, max_faces=max_faces)

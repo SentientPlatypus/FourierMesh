@@ -6,7 +6,7 @@
     <title>FourierMesh | Spectral Analysis for 3D Geometry</title>
     <meta
       name="description"
-      content="FourierMesh is a Python library for continuous Fourier analysis of point clouds and graph Laplacian spectral analysis of triangle meshes."
+      content="FourierMesh is a Python library for graph Laplacian spectral analysis and low-frequency reconstruction of triangle meshes."
     />
     <style>
       :root {
@@ -234,15 +234,14 @@
   <body>
     <header class="shell">
       <div class="eyebrow">Python | 3D Geometry | Spectral Methods</div>
-      <h1>Fourier analysis for point clouds and triangle meshes.</h1>
+      <h1>Spectral mesh analysis with the graph Laplacian.</h1>
       <p class="lede">
-        FourierMesh provides two complementary ways to study 3D geometry in the
-        frequency domain: a continuous Dirac-delta Fourier transform for raw
-        point clouds, and a graph Laplacian Fourier transform for connected
-        triangle meshes.
+        FourierMesh computes mesh Fourier modes from the graph Laplacian,
+        reconstructs geometry from low-frequency eigenvectors, and exports
+        cleaned STL meshes for downstream geometry and 3D-printing workflows.
       </p>
       <div class="actions">
-        <a class="button primary" href="#methods">Explore the Methods</a>
+        <a class="button primary" href="#methods">How It Works</a>
         <a class="button" href="#install">Install</a>
       </div>
     </header>
@@ -250,39 +249,22 @@
     <main>
       <section id="methods" class="shell">
         <div class="grid">
-          <article class="card span-6">
-            <div class="eyebrow">Method 1</div>
-            <h2>Dirac Delta Point-Cloud Fourier Transform</h2>
-            <p class="muted">
-              For unstructured points, FourierMesh models geometry as a sum of
-              Dirac delta impulses. The transform is evaluated directly at
-              arbitrary spatial frequencies without voxelization, interpolation,
-              or rasterizing the point cloud.
-            </p>
-            <div class="formula">f(x,y,z) = sum_n delta(x - xn) delta(y - yn) delta(z - zn)</div>
-            <div class="formula">F(kx,ky,kz) = sum_n exp(-i * (kx*xn + ky*yn + kz*zn))</div>
-            <div class="tag-list">
-              <span class="tag">Point clouds</span>
-              <span class="tag">Continuous frequencies</span>
-              <span class="tag">Complex spectrum</span>
-              <span class="tag">No mesh required</span>
-            </div>
-          </article>
-
-          <article class="card span-6">
-            <div class="eyebrow">Method 2</div>
-            <h2>Mesh Laplacian Graph Fourier Transform</h2>
+          <article class="card span-12">
+            <div class="eyebrow">Graph Laplacian</div>
+            <h2>Mesh Fourier Transform</h2>
             <p class="muted">
               For STL triangle meshes, FourierMesh treats vertices as graph
               nodes and triangle edges as connectivity. Laplacian eigenvectors
               become mesh Fourier modes, ordered from smooth low frequencies to
-              detailed high frequencies.
+              detailed high frequencies. Keeping the first k modes reconstructs
+              a smoothed surface.
             </p>
             <div class="formula">L = D - W</div>
-            <div class="formula">L u_i = lambda_i u_i | coeffs = U.T @ V | V_hat = U @ coeffs</div>
+            <div class="formula">L u_i = lambda_i u_i | coeffs = U.T @ V | V_hat = U[:,1:k] @ coeffs[1:k]</div>
             <div class="tag-list">
               <span class="tag">Triangle meshes</span>
               <span class="tag">Graph Laplacian</span>
+              <span class="tag">Sparse eigsh</span>
               <span class="tag">Low-frequency reconstruction</span>
               <span class="tag">STL export</span>
             </div>
@@ -309,18 +291,12 @@
           </article>
 
           <aside class="card span-4">
-            <h3>When to Use Which Method</h3>
+            <h3>Use Cases</h3>
             <ol class="steps">
-              <li>
-                Use the Dirac method when the input is a raw point cloud or
-                surface samples and the goal is Euclidean spatial-frequency
-                analysis.
-              </li>
-              <li>
-                Use the Laplacian method when the input is a connected triangle
-                mesh and the goal is smoothing, compression, or spectral
-                reconstruction over mesh connectivity.
-              </li>
+              <li>Mesh smoothing and low-pass filtering over connectivity.</li>
+              <li>Spectral compression by keeping the first k Laplacian modes.</li>
+              <li>Geometry-processing demos with quantitative reconstruction error.</li>
+              <li>STL export for slicers after cleanup and optional trimesh repair.</li>
             </ol>
           </aside>
         </div>
@@ -331,30 +307,30 @@
           <article class="card span-4">
             <h3>Core APIs</h3>
             <p class="muted">
-              <code>cartesian_DFT_dirac</code>,
-              <code>get_point_cloud_from_stl</code>,
-              <code>normalize_points</code>,
-              <code>load_stl_as_vertices_faces</code>,
-              <code>mesh_fourier_laplacian</code>, and
-              <code>inverse_mesh_fourier</code>.
+              <code>load_mesh_stl</code>,
+              <code>save_mesh_stl</code>,
+              <code>mesh_laplacian_eigenmodes</code>,
+              <code>mesh_fourier_transform</code>,
+              <code>inverse_mesh_fourier</code>, and
+              <code>reconstruct_mesh</code>.
             </p>
           </article>
           <article class="card span-4">
             <h3>Runtime Profile</h3>
             <p class="muted">
-              Direct point-cloud Fourier evaluation costs
-              <code>O(Nk^3 * N)</code>. Dense Laplacian eigendecomposition costs
-              <code>O(N^3)</code>, so larger meshes use sparse low-mode solves
-              or face limits for interactive runs.
+              Dense Laplacian eigendecomposition costs <code>O(N^3)</code> and is
+              used only for small meshes. Larger inputs use sparse
+              <code>eigsh</code> low-mode solves. The David example supports
+              <code>--max-faces</code> for fast interactive runs.
             </p>
           </article>
           <article class="card span-4">
             <h3>Project Status</h3>
             <p class="muted">
-              FourierMesh is an alpha-stage scientific Python package targeting
-              Python 3.10+ with NumPy, SciPy, and NumPy-STL. Optional tooling
-              includes Matplotlib for demos and Trimesh for slicer-friendly STL
-              repair.
+              FourierMesh v0.2 is a beta-stage scientific Python package for
+              mesh spectral analysis. Runtime: Python 3.10+, NumPy, SciPy,
+              NumPy-STL. Optional: Matplotlib demos and Trimesh slicer repair.
+              Legacy point-cloud Dirac code is on the <code>dirac</code> branch.
             </p>
           </article>
         </div>
@@ -372,17 +348,10 @@ python -m pip install -e ".[slicer]"</code></pre>
           </article>
           <article class="card span-6">
             <h2>Quick Start</h2>
-            <pre><code>import numpy as np
-from FourierMesh import cartesian_DFT_dirac
+            <pre><code>from FourierMesh import load_mesh_stl, reconstruct_mesh
 
-points = np.array([
-    [0.0, 0.0, 0.0],
-    [1.0, 0.0, 0.0],
-    [0.0, 1.0, 0.0],
-])
-
-k = np.linspace(-6, 6, 40)
-F = cartesian_DFT_dirac(points, k, k, k)</code></pre>
+vertices, faces = load_mesh_stl("model.stl")
+v_smooth, lambdas = reconstruct_mesh(vertices, faces, k=24)</code></pre>
           </article>
         </div>
       </section>
@@ -390,8 +359,7 @@ F = cartesian_DFT_dirac(points, k, k, k)</code></pre>
       <section class="shell">
         <div class="card span-12">
           <h2>Example Commands</h2>
-          <pre><code>python examples/dirac_visualization.py
-python examples/mesh_laplacian_david.py
+          <pre><code>python examples/mesh_laplacian_david.py --k 30
 python examples/cube_1cm_stl.py
 python -m pytest</code></pre>
         </div>
@@ -399,8 +367,7 @@ python -m pytest</code></pre>
     </main>
 
     <footer class="shell">
-      FourierMesh separates Euclidean Fourier analysis of point locations from
-      graph Fourier analysis of mesh connectivity.
+      FourierMesh — graph Laplacian spectral analysis for triangle meshes.
     </footer>
   </body>
 </html>

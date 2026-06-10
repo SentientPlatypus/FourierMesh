@@ -11,7 +11,7 @@ The STL is resolved in order: ``FOURIERMESH_DAVID_STL``, ``tests/models/DavidSta
 
 Eigendecomposition is ``O(N^3)``; use ``--max-faces`` to cap triangle count for interactive use.
 
-Writes the plot to ``tests/Artifacts/Dirac/david_mesh_fourier_compare_k_<k>.png`` and the
+Writes the plot to ``tests/Artifacts/Mesh/david_mesh_fourier_compare_k_<k>.png`` and the
 reconstructed mesh to ``tests/models/reconstructed_david_k_<k>_.stl`` by default
 (override with ``--output`` and ``--output-stl``) using ``numpy-stl``. Before export,
 faces are cleaned (degenerate / duplicate removal); install ``trimesh``
@@ -36,10 +36,15 @@ if _src.is_dir():
     if _s not in sys.path:
         sys.path.insert(0, _s)
 
-from FourierMesh.utils import (  # noqa: E402
-    inverse_mesh_fourier,
-    load_stl_as_vertices_faces,
-    mesh_fourier_laplacian,
+from FourierMesh import (  # noqa: E402
+    load_mesh_stl,
+    reconstruct_mesh,
+    save_mesh_stl,
+)
+from FourierMesh.mesh_cleanup import (  # noqa: E402
+    compact_mesh,
+    remove_degenerate_faces,
+    remove_duplicate_faces,
 )
 
 
@@ -143,47 +148,6 @@ def _submesh(
     return v_sub, f_sub
 
 
-def _remove_degenerate_faces(
-    v: np.ndarray, f: np.ndarray, rel_eps: float = 1e-12
-) -> tuple[np.ndarray, np.ndarray]:
-    """Drop triangles with near-zero area (common after spectral smoothing)."""
-    v = np.asarray(v, dtype=float)
-    f = np.asarray(f, dtype=np.int64)
-    if f.shape[0] == 0:
-        return v, f
-    v0, v1, v2 = v[f[:, 0]], v[f[:, 1]], v[f[:, 2]]
-    cross = np.cross(v1 - v0, v2 - v0)
-    areas = 0.5 * np.linalg.norm(cross, axis=1)
-    scale = float(np.max(v.max(axis=0) - v.min(axis=0)) + 1e-30)
-    thresh = rel_eps * (scale**2)
-    keep = areas > thresh
-    return v, f[keep]
-
-
-def _remove_duplicate_faces(v: np.ndarray, f: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Drop faces that reuse the same three vertex indices as an earlier face (any winding)."""
-    v = np.asarray(v, dtype=float)
-    f = np.asarray(f, dtype=np.int64)
-    if f.shape[0] == 0:
-        return v, f
-    keys = np.sort(f, axis=1)
-    _, idx = np.unique(keys, axis=0, return_index=True)
-    return v, f[np.sort(idx)]
-
-
-def _compact_mesh(v: np.ndarray, f: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Remap vertices to 0..n-1 after faces were removed."""
-    v = np.asarray(v, dtype=float)
-    f = np.asarray(f, dtype=np.int64)
-    if f.size == 0:
-        return v[:0], f
-    used = np.unique(f.ravel())
-    v_new = v[used]
-    inv = -np.ones(v.shape[0], dtype=np.int64)
-    inv[used] = np.arange(used.size, dtype=np.int64)
-    return v_new, inv[f]
-
-
 def _edge_multiplicity(f: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
     Return undirected edge keys and counts.
@@ -282,66 +246,7 @@ def _keep_largest_face_component(v: np.ndarray, f: np.ndarray) -> tuple[np.ndarr
 
     if len(largest) == n_faces:
         return v, f
-    return _compact_mesh(v, f[np.asarray(largest, dtype=np.int64)])
-
-
-def _reconstruct_low_frequency_mesh(
-    vertices: np.ndarray,
-    faces: np.ndarray,
-    k: int,
-    *,
-    normalized: bool = False,
-) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Reconstruct vertices from the first ``k`` graph-Laplacian modes.
-
-    The library helper computes a full dense eigendecomposition, which is fine for
-    tiny meshes but impossible for the full David mesh. This example only needs the
-    low-frequency modes, so use a sparse Laplacian and ``eigsh``.
-    """
-    vertices = np.asarray(vertices, dtype=float)
-    faces = np.asarray(faces, dtype=np.int64)
-    n = int(vertices.shape[0])
-    if n == 0:
-        raise ValueError("Cannot reconstruct an empty mesh")
-
-    k = min(max(int(k), 1), n)
-    if n <= 2048 and k == n:
-        coeffs, U, lambdas, _ = mesh_fourier_laplacian(
-            vertices,
-            faces=faces,
-            normalized=normalized,
-        )
-        return inverse_mesh_fourier(coeffs, U, k=None), lambdas
-
-    try:
-        from scipy import sparse
-        from scipy.sparse import csgraph
-        from scipy.sparse.linalg import eigsh
-    except ImportError as e:
-        raise SystemExit(
-            "Full-mesh reconstruction needs scipy for sparse Laplacian eigenvectors. "
-            "Install it with: pip install scipy"
-        ) from e
-
-    edges = np.vstack([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]])
-    edges = np.unique(np.sort(edges, axis=1), axis=0)
-    data = np.ones(2 * edges.shape[0], dtype=float)
-    row = np.concatenate([edges[:, 0], edges[:, 1]])
-    col = np.concatenate([edges[:, 1], edges[:, 0]])
-    W = sparse.coo_matrix((data, (row, col)), shape=(n, n)).tocsr()
-    L = csgraph.laplacian(W, normed=normalized).astype(float)
-
-    # ``eigsh`` requires k < N. Keeping N - 1 modes is already effectively full
-    # spectrum for this example, and avoids falling back to a dense solve.
-    k_sparse = min(k, max(1, n - 1))
-    lambdas, U = eigsh(L, k=k_sparse, which="SM")
-    order = np.argsort(lambdas)
-    lambdas = lambdas[order]
-    U = U[:, order]
-
-    coeffs = U.T @ vertices
-    return U @ coeffs, lambdas
+    return compact_mesh(v, f[np.asarray(largest, dtype=np.int64)])
 
 
 def _drop_overfull_edges(v: np.ndarray, f: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -398,10 +303,10 @@ def _prepare_mesh_for_export(
     Sanitize mesh before STL export (slicer-friendly): degenerate / duplicate removal,
     optional ``trimesh`` process (merge, consistent normals).
     """
-    v, f = _remove_degenerate_faces(v, f)
-    v, f = _remove_duplicate_faces(v, f)
+    v, f = remove_degenerate_faces(v, f)
+    v, f = remove_duplicate_faces(v, f)
     v, f = _drop_overfull_edges(v, f)
-    v, f = _compact_mesh(v, f)
+    v, f = compact_mesh(v, f)
     if f.shape[0] == 0:
         raise ValueError("Mesh is empty after cleanup; try different --k or --max-faces.")
 
@@ -428,57 +333,18 @@ def _prepare_mesh_for_export(
             if f.shape[0] == 0:
                 raise ValueError("Mesh is empty after trimesh repair.")
 
-    v, f = _remove_degenerate_faces(v, f)
-    v, f = _remove_duplicate_faces(v, f)
+    v, f = remove_degenerate_faces(v, f)
+    v, f = remove_duplicate_faces(v, f)
     v, f = _drop_overfull_edges(v, f)
     v, f = _keep_largest_face_component(v, f)
-    v, f = _compact_mesh(v, f)
+    v, f = compact_mesh(v, f)
     if f.shape[0] == 0:
         raise ValueError("Mesh is empty after final cleanup; try a larger --k.")
 
     return v, f
 
 
-def _save_mesh_stl(
-    vertices: np.ndarray,
-    faces: np.ndarray,
-    path: Path,
-    *,
-    fmt: str = "binary",
-) -> None:
-    """Write triangle soup as STL via ``numpy-stl`` (binary or ASCII)."""
-    from stl import Mesh, Mode
-    from stl.base import RemoveDuplicates
-
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    v = np.asarray(vertices, dtype=float)
-    f = np.asarray(faces, dtype=int)
-    if f.ndim != 2 or f.shape[1] != 3:
-        raise ValueError("faces must have shape (M, 3)")
-    n_tri = int(f.shape[0])
-    if n_tri == 0:
-        raise ValueError("Cannot write STL: no triangles (check --max-faces and input mesh).")
-    if f.min() < 0 or f.max() >= v.shape[0]:
-        raise ValueError("face indices out of bounds for vertex array")
-    if not np.isfinite(v).all():
-        raise ValueError("Cannot write STL: non-finite vertex coordinates")
-
-    stl_data = np.zeros(n_tri, dtype=Mesh.dtype)
-    stl_data["vectors"] = v[f]
-    m = Mesh(
-        stl_data,
-        calculate_normals=True,
-        remove_empty_areas=False,
-        remove_duplicate_polygons=RemoveDuplicates.SINGLE,
-        name="reconstructed_david",
-    )
-    mode = Mode.ASCII if fmt == "ascii" else Mode.BINARY
-    m.save(str(path), mode=mode, update_normals=True)
-
-
-# Match ``examples/dirac_visualization.py`` / ``tests/Artifacts/Dirac/cube_dft.png`` look.
+# Match ``tests/Artifacts/Mesh/`` comparison plot styling.
 _FIG_FACE = "#1a1a2e"
 _AX_FACE = "#1a1a2e"
 _CMAP_NAME = "inferno"
@@ -591,7 +457,7 @@ def _plot_pair(
     _one(axes[0], v_orig, f"Original ({mesh_label})")
     _one(axes[1], v_recon, f"Reconstructed (k={k} lowest graph-Fourier modes)")
     fig.suptitle(
-        "mesh_fourier_laplacian → inverse_mesh_fourier",
+        "reconstruct_mesh (graph Laplacian low-pass)",
         fontsize=11,
         color="0.95",
     )
@@ -622,7 +488,7 @@ def main() -> None:
         "--output",
         type=Path,
         default=None,
-        help="PNG path for the comparison plot (default: tests/Artifacts/Dirac/david_mesh_fourier_compare_k_<k>.png)",
+        help="PNG path for the comparison plot (default: tests/Artifacts/Mesh/david_mesh_fourier_compare_k_<k>.png)",
     )
     p.add_argument(
         "--output-stl",
@@ -656,7 +522,7 @@ def main() -> None:
             "or set FOURIERMESH_DAVID_STL."
         )
 
-    vertices, faces = load_stl_as_vertices_faces(str(stl_path), dedupe=True)
+    vertices, faces = load_mesh_stl(str(stl_path), dedupe=True)
     if args.max_faces is not None:
         if args.max_faces <= 0:
             raise SystemExit("--max-faces must be a positive integer when provided")
@@ -671,12 +537,7 @@ def main() -> None:
     if k_eff != args.k:
         print(f"Note: clamped k from {args.k} to {k_eff} (vertex count N={n})")
 
-    v_recon, lambdas = _reconstruct_low_frequency_mesh(
-        v_mesh,
-        f_mesh,
-        k=k_eff,
-        normalized=False,
-    )
+    v_recon, lambdas = reconstruct_mesh(v_mesh, f_mesh, k=k_eff, normalized=False)
     err = np.linalg.norm(v_mesh - v_recon) / (np.linalg.norm(v_mesh) + 1e-12)
     print(f"Mesh scope: {mesh_label}")
     print(f"Vertices N={n}, faces={f_mesh.shape[0]}, k={k_eff}, relative L2 error vs full: {err:.4g}")
@@ -707,12 +568,12 @@ def main() -> None:
             f"boundary(1 face)={boundary_edge_count}, "
             f"components={component_count}"
         )
-        _save_mesh_stl(v_exp, f_exp, stl_out, fmt=args.stl_format)
+        save_mesh_stl(v_exp, f_exp, stl_out, fmt=args.stl_format, name="reconstructed_david")
         print(f"Wrote reconstructed STL: {stl_out}")
 
     plot_out = args.output
     if plot_out is None:
-        plot_out = _repo_root / "tests" / "Artifacts" / "Dirac" / f"david_mesh_fourier_compare_k_{k_eff}.png"
+        plot_out = _repo_root / "tests" / "Artifacts" / "Mesh" / f"david_mesh_fourier_compare_k_{k_eff}.png"
     else:
         plot_out = Path(plot_out).expanduser().resolve()
 
