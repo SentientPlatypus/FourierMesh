@@ -37,14 +37,14 @@ if _src.is_dir():
         sys.path.insert(0, _s)
 
 from FourierMesh import (  # noqa: E402
+    edge_multiplicity,
+    face_component_count,
+    inverse_mesh_fourier,
     load_mesh_stl,
-    reconstruct_mesh,
+    mesh_fourier_transform,
+    prepare_mesh_for_export,
     save_mesh_stl,
-)
-from FourierMesh.mesh_cleanup import (  # noqa: E402
-    compact_mesh,
-    remove_degenerate_faces,
-    remove_duplicate_faces,
+    submesh_max_faces,
 )
 
 
@@ -60,288 +60,6 @@ def _david_stl_path() -> Path:
         if p.is_file():
             return p
     return _repo_root / "tests" / "fixtures" / "DavidStatue.stl"
-
-
-def _submesh(
-    vertices: np.ndarray, faces: np.ndarray, max_faces: int
-) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Subsample faces and remap vertices to 0..n-1.
-
-    Naïvely taking ``faces[:max_faces]`` can include triangles from several disconnected
-    island components. A BFS “first N faces” from one seed only covers a **small local
-    patch** on a large mesh.
-
-    Here we: (1) build shared-edge adjacency, (2) keep the **largest connected component**
-    of faces, (3) take up to ``max_faces`` triangles by BFS within that component. The
-    cap is now an explicit debug/speed mode, so keeping the capped mesh connected is more
-    important than trying to sample the whole statue.
-    """
-    faces = np.asarray(faces, dtype=np.int64)
-    n_faces = int(faces.shape[0])
-    if n_faces == 0:
-        return np.zeros((0, 3), dtype=float), np.zeros((0, 3), dtype=np.int64)
-
-    # Build edge -> incident faces
-    edge_to_faces: dict[tuple[int, int], list[int]] = {}
-    for fi in range(n_faces):
-        a, b, c = (int(x) for x in faces[fi])
-        for u, w in ((a, b), (b, c), (c, a)):
-            e = (u, w) if u < w else (w, u)
-            edge_to_faces.setdefault(e, []).append(fi)
-
-    # Shared-edge adjacency (two faces on the same undirected edge)
-    neigh: list[set[int]] = [set() for _ in range(n_faces)]
-    for inc in edge_to_faces.values():
-        if len(inc) >= 2:
-            for i in inc:
-                for j in inc:
-                    if i != j:
-                        neigh[i].add(j)
-
-    visited = np.zeros(n_faces, dtype=bool)
-    largest_mask = np.zeros(n_faces, dtype=bool)
-    best_size = 0
-    for start in range(n_faces):
-        if visited[start]:
-            continue
-        stack = [start]
-        visited[start] = True
-        comp: list[int] = []
-        while stack:
-            cur = stack.pop()
-            comp.append(cur)
-            for nb in neigh[cur]:
-                if not visited[nb]:
-                    visited[nb] = True
-                    stack.append(nb)
-        if len(comp) > best_size:
-            best_size = len(comp)
-            largest_mask.fill(False)
-            largest_mask[np.array(comp, dtype=np.int64)] = True
-
-    target = min(max_faces, best_size)
-    comp_faces = np.flatnonzero(largest_mask)
-    comp_centers = vertices[faces[comp_faces]].mean(axis=1)
-    seed = int(comp_faces[np.argmin(np.linalg.norm(comp_centers - comp_centers.mean(axis=0), axis=1))])
-
-    keep: list[int] = []
-    queued = np.zeros(n_faces, dtype=bool)
-    queued[seed] = True
-    queue = [seed]
-    head = 0
-    while head < len(queue) and len(keep) < target:
-        cur = queue[head]
-        head += 1
-        keep.append(cur)
-        for nb in sorted(neigh[cur]):
-            if largest_mask[nb] and not queued[nb]:
-                queued[nb] = True
-                queue.append(nb)
-
-    faces_kept = faces[np.asarray(keep, dtype=np.int64)]
-    used = np.unique(faces_kept.ravel())
-    v_sub = np.asarray(vertices, dtype=float)[used]
-    old_to_new = -np.ones(vertices.shape[0], dtype=np.int64)
-    old_to_new[used] = np.arange(used.size, dtype=np.int64)
-    f_sub = old_to_new[faces_kept]
-    return v_sub, f_sub
-
-
-def _edge_multiplicity(f: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Return undirected edge keys and counts.
-
-    edges_key: (E, 2) sorted vertex-index pairs
-    counts:    (E,) occurrence count of each undirected edge in faces
-    """
-    f = np.asarray(f, dtype=np.int64)
-    if f.shape[0] == 0:
-        return np.zeros((0, 2), dtype=np.int64), np.zeros((0,), dtype=np.int64)
-    e = np.vstack([f[:, [0, 1]], f[:, [1, 2]], f[:, [2, 0]]])
-    e = np.sort(e, axis=1)
-    edges_key, counts = np.unique(e, axis=0, return_counts=True)
-    return edges_key, counts
-
-
-def _face_component_count(f: np.ndarray) -> int:
-    """Count shared-edge connected face components."""
-    f = np.asarray(f, dtype=np.int64)
-    n_faces = int(f.shape[0])
-    if n_faces == 0:
-        return 0
-
-    edge_to_faces: dict[tuple[int, int], list[int]] = {}
-    for fi in range(n_faces):
-        a, b, c = (int(x) for x in f[fi])
-        for u, w in ((a, b), (b, c), (c, a)):
-            e = (u, w) if u < w else (w, u)
-            edge_to_faces.setdefault(e, []).append(fi)
-
-    neigh: list[list[int]] = [[] for _ in range(n_faces)]
-    for inc in edge_to_faces.values():
-        if len(inc) >= 2:
-            for i in inc:
-                for j in inc:
-                    if i != j:
-                        neigh[i].append(j)
-
-    visited = np.zeros(n_faces, dtype=bool)
-    components = 0
-    for start in range(n_faces):
-        if visited[start]:
-            continue
-        components += 1
-        stack = [start]
-        visited[start] = True
-        while stack:
-            cur = stack.pop()
-            for nb in neigh[cur]:
-                if not visited[nb]:
-                    visited[nb] = True
-                    stack.append(nb)
-    return components
-
-
-def _keep_largest_face_component(v: np.ndarray, f: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Drop disconnected face islands created by cleanup/repair."""
-    v = np.asarray(v, dtype=float)
-    f = np.asarray(f, dtype=np.int64)
-    n_faces = int(f.shape[0])
-    if n_faces == 0:
-        return v, f
-
-    edge_to_faces: dict[tuple[int, int], list[int]] = {}
-    for fi in range(n_faces):
-        a, b, c = (int(x) for x in f[fi])
-        for u, w in ((a, b), (b, c), (c, a)):
-            e = (u, w) if u < w else (w, u)
-            edge_to_faces.setdefault(e, []).append(fi)
-
-    neigh: list[list[int]] = [[] for _ in range(n_faces)]
-    for inc in edge_to_faces.values():
-        if len(inc) >= 2:
-            for i in inc:
-                for j in inc:
-                    if i != j:
-                        neigh[i].append(j)
-
-    visited = np.zeros(n_faces, dtype=bool)
-    largest: list[int] = []
-    for start in range(n_faces):
-        if visited[start]:
-            continue
-        stack = [start]
-        visited[start] = True
-        comp: list[int] = []
-        while stack:
-            cur = stack.pop()
-            comp.append(cur)
-            for nb in neigh[cur]:
-                if not visited[nb]:
-                    visited[nb] = True
-                    stack.append(nb)
-        if len(comp) > len(largest):
-            largest = comp
-
-    if len(largest) == n_faces:
-        return v, f
-    return compact_mesh(v, f[np.asarray(largest, dtype=np.int64)])
-
-
-def _drop_overfull_edges(v: np.ndarray, f: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Remove faces touching any edge used by more than 2 faces.
-
-    This targets the strict non-manifold condition slicers usually report.
-    Iterates until no edge has multiplicity > 2.
-    """
-    v = np.asarray(v, dtype=float)
-    f = np.asarray(f, dtype=np.int64)
-    if f.shape[0] == 0:
-        return v, f
-
-    max_iter = max(1, 5 * f.shape[0])
-    for _ in range(max_iter):
-        edges_key, counts = _edge_multiplicity(f)
-        bad = edges_key[counts > 2]
-        if bad.shape[0] == 0:
-            return v, f
-
-        bad_set = {tuple(e) for e in bad.tolist()}
-        e01 = np.sort(f[:, [0, 1]], axis=1)
-        e12 = np.sort(f[:, [1, 2]], axis=1)
-        e20 = np.sort(f[:, [2, 0]], axis=1)
-        bad_score = np.array(
-            [
-                int(tuple(e01[i].tolist()) in bad_set)
-                + int(tuple(e12[i].tolist()) in bad_set)
-                + int(tuple(e20[i].tolist()) in bad_set)
-                for i in range(f.shape[0])
-            ],
-            dtype=np.int64,
-        )
-        candidate = np.flatnonzero(bad_score > 0)
-        if candidate.size == 0:
-            return v, f
-        # Remove one face that participates in the most overfull edges.
-        drop_idx = int(candidate[np.argmax(bad_score[candidate])])
-        if f.shape[0] <= 1:
-            return v, f
-        f = np.delete(f, drop_idx, axis=0)
-
-    return v, f
-
-
-def _prepare_mesh_for_export(
-    v: np.ndarray,
-    f: np.ndarray,
-    *,
-    use_trimesh: bool,
-) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Sanitize mesh before STL export (slicer-friendly): degenerate / duplicate removal,
-    optional ``trimesh`` process (merge, consistent normals).
-    """
-    v, f = remove_degenerate_faces(v, f)
-    v, f = remove_duplicate_faces(v, f)
-    v, f = _drop_overfull_edges(v, f)
-    v, f = compact_mesh(v, f)
-    if f.shape[0] == 0:
-        raise ValueError("Mesh is empty after cleanup; try different --k or --max-faces.")
-
-    if use_trimesh:
-        try:
-            import trimesh
-        except ImportError:
-            print(
-                "Note: trimesh not installed; for better slicer compatibility run: "
-                "pip install trimesh  (or pip install -e \".[slicer]\" from repo root)"
-            )
-            use_trimesh = False
-        if use_trimesh:
-            tm = trimesh.Trimesh(
-                vertices=v.astype(np.float64),
-                faces=f.astype(np.int64),
-                process=True,
-            )
-            trimesh.repair.fix_winding(tm)
-            trimesh.repair.fix_normals(tm, multibody=True)
-            trimesh.repair.fill_holes(tm)
-            v = np.asarray(tm.vertices, dtype=float)
-            f = np.asarray(tm.faces, dtype=np.int64)
-            if f.shape[0] == 0:
-                raise ValueError("Mesh is empty after trimesh repair.")
-
-    v, f = remove_degenerate_faces(v, f)
-    v, f = remove_duplicate_faces(v, f)
-    v, f = _drop_overfull_edges(v, f)
-    v, f = _keep_largest_face_component(v, f)
-    v, f = compact_mesh(v, f)
-    if f.shape[0] == 0:
-        raise ValueError("Mesh is empty after final cleanup; try a larger --k.")
-
-    return v, f
 
 
 # Match ``tests/Artifacts/Mesh/`` comparison plot styling.
@@ -457,7 +175,7 @@ def _plot_pair(
     _one(axes[0], v_orig, f"Original ({mesh_label})")
     _one(axes[1], v_recon, f"Reconstructed (k={k} lowest graph-Fourier modes)")
     fig.suptitle(
-        "reconstruct_mesh (graph Laplacian low-pass)",
+        "mesh_fourier_transform + inverse_mesh_fourier (graph Laplacian low-pass)",
         fontsize=11,
         color="0.95",
     )
@@ -526,7 +244,7 @@ def main() -> None:
     if args.max_faces is not None:
         if args.max_faces <= 0:
             raise SystemExit("--max-faces must be a positive integer when provided")
-        v_mesh, f_mesh = _submesh(vertices, faces, max_faces=args.max_faces)
+        v_mesh, f_mesh = submesh_max_faces(vertices, faces, max_faces=args.max_faces)
         mesh_label = f"submesh, {f_mesh.shape[0]} of {faces.shape[0]} faces"
     else:
         v_mesh, f_mesh = np.asarray(vertices, dtype=float), np.asarray(faces, dtype=np.int64)
@@ -537,10 +255,14 @@ def main() -> None:
     if k_eff != args.k:
         print(f"Note: clamped k from {args.k} to {k_eff} (vertex count N={n})")
 
-    v_recon, lambdas = reconstruct_mesh(v_mesh, f_mesh, k=k_eff, normalized=False)
+    coeffs, U, lambdas = mesh_fourier_transform(
+        v_mesh, f_mesh, k=k_eff, normalized=False
+    )
+    v_recon = inverse_mesh_fourier(coeffs, U, k=k_eff)
     err = np.linalg.norm(v_mesh - v_recon) / (np.linalg.norm(v_mesh) + 1e-12)
     print(f"Mesh scope: {mesh_label}")
     print(f"Vertices N={n}, faces={f_mesh.shape[0]}, k={k_eff}, relative L2 error vs full: {err:.4g}")
+    print(f"Lowest eigenvalue lambda_0={float(lambdas[0]):.4g}")
 
     if not args.no_save_stl:
         stl_out = args.output_stl
@@ -548,15 +270,15 @@ def main() -> None:
             stl_out = _repo_root / "tests" / "models" / f"reconstructed_david_k_{k_eff}_.stl"
         else:
             stl_out = Path(stl_out).expanduser().resolve()
-        v_exp, f_exp = _prepare_mesh_for_export(
+        v_exp, f_exp = prepare_mesh_for_export(
             v_recon,
             f_mesh,
             use_trimesh=not args.no_repair,
         )
-        _, edge_counts = _edge_multiplicity(f_exp)
+        _, edge_counts = edge_multiplicity(f_exp)
         nonmanifold_edge_count = int(np.sum(edge_counts > 2))
         boundary_edge_count = int(np.sum(edge_counts == 1))
-        component_count = _face_component_count(f_exp)
+        component_count = face_component_count(f_exp)
         if f_exp.shape[0] != f_mesh.shape[0]:
             print(
                 f"STL export: {f_exp.shape[0]} facets after cleanup "
