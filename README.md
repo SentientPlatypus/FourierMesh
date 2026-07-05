@@ -8,6 +8,10 @@ Spectral analysis and low-frequency reconstruction for triangle meshes using the
 
 *Low-frequency spectral reconstruction of Michelangelo's David, with `k` swept live in the [Blender add-on](blender/) — fewer modes give a smoother, more global shape; more modes restore fine detail. ([Download the clip](tests/Artifacts/david_fourier_smoothing.mp4) if the player doesn't load.)*
 
+<video src="https://github.com/SentientPlatypus/FourierMesh/raw/master/tests/Artifacts/visualize_eigen.mp4" controls muted width="100%"></video>
+
+*Eigenmode visualization — a single graph-Laplacian eigenvector ("frequency") painted onto the mesh as a color attribute, sweeping from low, global modes to high-frequency detail. ([Download the clip](tests/Artifacts/visualize_eigen.mp4).)*
+
 ![David mesh: original vs low-frequency reconstruction at k=30](tests/Artifacts/Dirac/david_mesh_fourier_compare_k_30.png)
 
 ## What it does

@@ -10,6 +10,10 @@ Blender.
 
 *Spectral smoothing of the David statue, `k` swept live in this add-on. ([Download the clip](../tests/Artifacts/david_fourier_smoothing.mp4).)*
 
+<video src="https://github.com/SentientPlatypus/FourierMesh/raw/master/tests/Artifacts/visualize_eigen.mp4" controls muted width="100%"></video>
+
+*Visualize Eigenmode — a single Laplacian eigenvector painted on the mesh, swept from low to high frequency. ([Download the clip](../tests/Artifacts/visualize_eigen.mp4).)*
+
 ## What it does
 
 - **Spectral Smooth** — reconstruct the active mesh from its first `k`
