@@ -1,0 +1,15 @@
+schema_version = "1.0.0"
+
+id = "fouriermesh"
+version = "0.1.0"
+name = "FourierMesh"
+tagline = "Graph-Laplacian spectral smoothing for triangle meshes"
+maintainer = "Geneustace Wicaksono <gjw62@cornell.edu>"
+type = "add-on"
+
+blender_version_min = "4.2.0"
+
+license = ["SPDX:MIT"]
+tags = ["Mesh", "Modeling"]
+
+# Runs on Blender's bundled numpy -- no wheels or extra permissions needed.

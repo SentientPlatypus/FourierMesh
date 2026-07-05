@@ -1,8 +1,14 @@
 # FourierMesh
 
-![David mesh: original vs low-frequency reconstruction](tests/Artifacts/Dirac/david_mesh_fourier_compare_k_30.png)
-
 Spectral analysis and low-frequency reconstruction for triangle meshes using the **graph Laplacian**.
+
+## Demo
+
+<video src="https://github.com/SentientPlatypus/FourierMesh/raw/master/tests/Artifacts/david_fourier_smoothing.mp4" controls muted width="100%"></video>
+
+*Low-frequency spectral reconstruction of Michelangelo's David, with `k` swept live in the [Blender add-on](blender/) — fewer modes give a smoother, more global shape; more modes restore fine detail. ([Download the clip](tests/Artifacts/david_fourier_smoothing.mp4) if the player doesn't load.)*
+
+![David mesh: original vs low-frequency reconstruction at k=30](tests/Artifacts/Dirac/david_mesh_fourier_compare_k_30.png)
 
 ## What it does
 
@@ -27,7 +33,7 @@ $$\hat{V} = U_{:,1:k}\, \text{coeffs}_{1:k,:}$$
 ## Installation
 
 ```bash
-git clone https://github.com/yourname/FourierMesh.git
+git clone https://github.com/SentientPlatypus/FourierMesh.git
 cd FourierMesh
 python -m pip install -e .
 ```
@@ -76,6 +82,15 @@ Outputs:
 
 - Comparison PNG under `tests/Artifacts/Mesh/`
 - Reconstructed STL under `tests/models/`
+
+## Blender add-on
+
+A self-contained Blender add-on lives in [`blender/`](blender/) — spectral smoothing and eigenmode visualization directly in the viewport, running on Blender's bundled numpy (no scipy or `pip install` needed).
+
+- **Spectral Smooth** — low-pass reconstruct the active mesh. The eigenbasis is solved once and cached, so dragging `k` in the redo panel (F9) updates live.
+- **Visualize Eigenmode** — paint a single Laplacian eigenvector onto the mesh as a color attribute to see individual mesh "frequencies".
+
+Install by zipping the add-on folder and using `Edit > Preferences > Add-ons > Install from Disk`. Full instructions in [`blender/README.md`](blender/README.md).
 
 ## Performance
 
