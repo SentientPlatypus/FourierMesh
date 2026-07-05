@@ -114,14 +114,16 @@ class FOURIERMESH_OT_spectral_smooth(bpy.types.Operator):
     def execute(self, context):
         mesh = context.active_object.data
         cache = _BASIS_CACHE.get(mesh.name)
-        if not _cache_is_valid(cache, mesh, self.normalized):
+        solved = not _cache_is_valid(cache, mesh, self.normalized)
+        if solved:
             cache = _solve_and_cache(mesh, self.normalized)
 
         recon = spectral.reconstruct(cache["U"], cache["coeffs"], self.k)
         _write_mesh_positions(mesh, recon)
+        basis = "solved new basis" if solved else "reused cached basis"
         self.report(
             {"INFO"},
-            f"Spectral smooth: k={min(self.k, cache['n'])} / {cache['n']} modes",
+            f"Spectral smooth: k={min(self.k, cache['n'])} / {cache['n']} modes ({basis})",
         )
         return {"FINISHED"}
 

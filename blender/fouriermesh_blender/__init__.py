@@ -10,7 +10,7 @@ See ``blender/README.md`` for install and usage.
 bl_info = {
     "name": "FourierMesh",
     "author": "Geneustace Wicaksono",
-    "version": (0, 1, 0),
+    "version": (0, 1, 1),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar (N) > FourierMesh",
     "description": "Graph-Laplacian spectral smoothing and eigenmode visualization for meshes",
