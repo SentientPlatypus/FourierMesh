@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
-  { name = "FourierMesh contributors" }
+  { name = "Geneustace Wicaksono" }
 ]
 dependencies = [
   "numpy>=1.24",
@@ -39,10 +39,10 @@ slicer = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourname/FourierMesh"
-Repository = "https://github.com/yourname/FourierMesh"
-Documentation = "https://github.com/yourname/FourierMesh#readme"
-Issues = "https://github.com/yourname/FourierMesh/issues"
+Homepage = "https://github.com/SentientPlatypus/FourierMesh"
+Repository = "https://github.com/SentientPlatypus/FourierMesh"
+Documentation = "https://github.com/SentientPlatypus/FourierMesh#readme"
+Issues = "https://github.com/SentientPlatypus/FourierMesh/issues"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

@@ -234,26 +234,18 @@ def drop_overfull_edges(
         if bad.shape[0] == 0:
             return v, f
 
-        bad_set = {tuple(e) for e in bad.tolist()}
-        e01 = np.sort(f[:, [0, 1]], axis=1)
-        e12 = np.sort(f[:, [1, 2]], axis=1)
-        e20 = np.sort(f[:, [2, 0]], axis=1)
-        bad_score = np.array(
-            [
-                int(tuple(e01[i].tolist()) in bad_set)
-                + int(tuple(e12[i].tolist()) in bad_set)
-                + int(tuple(e20[i].tolist()) in bad_set)
-                for i in range(f.shape[0])
-            ],
-            dtype=np.int64,
-        )
-        candidate = np.flatnonzero(bad_score > 0)
-        if candidate.size == 0:
+        # Score each face by how many of its 3 edges are overfull. Pack each
+        # sorted edge into a single int key so membership is a vectorized isin.
+        stride = int(f.max()) + 1
+        bad_keys = bad[:, 0] * stride + bad[:, 1]
+        bad_score = np.zeros(f.shape[0], dtype=np.int64)
+        for pair in (f[:, [0, 1]], f[:, [1, 2]], f[:, [2, 0]]):
+            e = np.sort(pair, axis=1)
+            bad_score += np.isin(e[:, 0] * stride + e[:, 1], bad_keys)
+
+        if not bad_score.any() or f.shape[0] <= 1:
             return v, f
-        drop_idx = int(candidate[np.argmax(bad_score[candidate])])
-        if f.shape[0] <= 1:
-            return v, f
-        f = np.delete(f, drop_idx, axis=0)
+        f = np.delete(f, int(np.argmax(bad_score)), axis=0)
 
     return v, f
 

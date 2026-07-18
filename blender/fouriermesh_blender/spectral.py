@@ -1,13 +1,4 @@
-"""Numpy-only graph-Laplacian spectral core for the FourierMesh Blender add-on.
-
-A dependency-light subset of the main FourierMesh library (the dense
-``numpy.linalg.eigh`` path only), so the add-on runs against Blender's bundled
-numpy with no scipy install or wheel bundling required.
-
-The Laplacian is built directly from an edge list, which Blender's mesh data
-provides natively (``mesh.edges``) -- no triangulation needed, and n-gons /
-quads work as-is.
-"""
+"""Dense graph Laplacian spectral core (numpy only, no scipy)."""
 
 from __future__ import annotations
 
@@ -17,10 +8,7 @@ import numpy as np
 def combinatorial_laplacian_from_edges(
     edges: np.ndarray, n: int, *, normalized: bool = False
 ) -> np.ndarray:
-    """Dense graph Laplacian from an ``(E, 2)`` edge array.
-
-    ``L = D - W`` (combinatorial) or ``I - D^-1/2 W D^-1/2`` (normalized).
-    """
+    """Dense graph Laplacian ``L = D - W`` from an ``(E, 2)`` edge array."""
     edges = np.asarray(edges, dtype=np.int64)
     W = np.zeros((n, n), dtype=np.float64)
     if edges.size:
@@ -41,12 +29,10 @@ def combinatorial_laplacian_from_edges(
 def solve_eigenbasis(
     vertices: np.ndarray, edges: np.ndarray, *, normalized: bool = False
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Full dense eigendecomposition of the mesh graph Laplacian.
+    """Eigendecomposition of the mesh Laplacian.
 
-    This is the expensive step -- run it once and cache the result. Returns
-    ``(U, coeffs, lambdas)`` where ``U`` is ``(N, N)`` (eigenvectors as columns,
-    ascending eigenvalue), ``coeffs = U.T @ V`` is ``(N, 3)``, and ``lambdas``
-    is ``(N,)``. Reconstruct any ``k`` cheaply via :func:`reconstruct`.
+    Returns ``(U, coeffs, lambdas)`` with ``U`` of shape ``(N, N)``,
+    ``coeffs = U.T @ V``, and ascending ``lambdas``.
     """
     vertices = np.asarray(vertices, dtype=np.float64)
     n = int(vertices.shape[0])
@@ -60,10 +46,6 @@ def solve_eigenbasis(
 
 
 def reconstruct(U: np.ndarray, coeffs: np.ndarray, k: int) -> np.ndarray:
-    """Low-pass reconstruction from the first ``k`` modes -- a truncated matmul.
-
-    Cheap enough to call on every redo-panel drag: ``k`` is a free runtime knob
-    once the basis in ``U``/``coeffs`` has been solved.
-    """
+    """Reconstruct vertices from the first ``k`` modes."""
     k = max(1, min(int(k), U.shape[1]))
     return U[:, :k] @ coeffs[:k]

@@ -8,9 +8,7 @@ from bpy.props import BoolProperty, IntProperty
 
 from . import spectral
 
-# mesh-datablock name -> {"n", "n_edges", "normalized", "U", "coeffs", "lambdas"}
-# The basis is solved once (in invoke / on cache miss) and reused so dragging k
-# in the redo panel is instant.
+# Solved eigenbasis per mesh datablock, keyed by name.
 _BASIS_CACHE: dict[str, dict] = {}
 
 
@@ -79,9 +77,8 @@ class FOURIERMESH_OT_spectral_smooth(bpy.types.Operator):
 
     k: IntProperty(
         name="Modes (k)",
-        description="Number of low-frequency Laplacian modes to keep. "
-        "Fewer = smoother/blobbier, more = closer to the original. "
-        "Clamped to the vertex count at run time",
+        description="Number of low-frequency Laplacian modes to keep "
+        "(clamped to the vertex count)",
         default=24,
         min=1,
     )
@@ -97,12 +94,8 @@ class FOURIERMESH_OT_spectral_smooth(bpy.types.Operator):
         return _mesh_poll(context)
 
     def invoke(self, context, event):
-        # A fresh click just needs a valid basis; execute() solves it on a cache
-        # miss and reuses it otherwise. Reusing keeps re-clicks instant AND
-        # idempotent: reconstruction always starts from the ORIGINAL geometry
-        # captured on the first solve, so clicking again never over-smooths.
-        # (Topology changes or flipping "normalized" invalidate the cache and
-        # force a fresh solve; see _cache_is_valid.)
+        # Reuse the cached basis so re-clicks reconstruct from the original
+        # geometry, not the already-smoothed result.
         mesh = context.active_object.data
         n = len(mesh.vertices)
         if n == 0:
@@ -168,8 +161,7 @@ class FOURIERMESH_OT_show_eigenmode(bpy.types.Operator):
 
     mode_index: IntProperty(
         name="Mode",
-        description="Which eigenvector (frequency) to paint. 0 is the flat DC "
-        "mode; higher indices are higher-frequency detail",
+        description="Which eigenvector (frequency) to paint; higher = finer detail",
         default=1,
         min=0,
         soft_max=64,

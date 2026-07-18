@@ -26,19 +26,31 @@ Blender.
 
 ## Install
 
-**Blender 4.2+ (Extensions):**
+**Build the package** (recommended — Blender's own packer produces the
+canonical, store-ready zip):
 
-1. Zip the add-on folder so the zip contains `fouriermesh_blender/` at its root:
-   ```bash
-   cd blender
-   zip -r fouriermesh_blender.zip fouriermesh_blender
-   ```
-2. Blender → `Edit > Preferences > Add-ons` → the ▾ menu (top-right) →
-   **Install from Disk…** → pick the zip.
-3. Enable **FourierMesh** if it isn't already.
+```bash
+cd blender
+blender --command extension build --source-dir ./fouriermesh_blender --output-dir .
+# -> fouriermesh-0.1.1.zip
+```
 
-**Blender 4.0–4.1 (legacy):** same, via `Edit > Preferences > Add-ons >
-Install…`.
+Then in Blender: `Edit > Preferences > Add-ons` → the **▾** menu (top-right) →
+**Install from Disk…** → pick `fouriermesh-0.1.1.zip` → enable **FourierMesh**.
+
+The same `fouriermesh-0.1.1.zip` is what you upload to
+[extensions.blender.org](https://extensions.blender.org).
+
+**Manual zip** (fallback — no `blender` on your PATH): zip the folder so
+`fouriermesh_blender/` sits at the zip root, then Install from Disk as above.
+
+```bash
+cd blender
+zip -r fouriermesh_blender.zip fouriermesh_blender
+```
+
+Requires Blender 4.2+ (the Extensions system). On 4.0–4.1, use the manual zip
+via `Edit > Preferences > Add-ons > Install…`.
 
 ## Usage
 

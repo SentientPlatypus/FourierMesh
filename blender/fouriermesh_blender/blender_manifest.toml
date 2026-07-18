@@ -6,6 +6,7 @@ name = "FourierMesh"
 tagline = "Graph-Laplacian spectral smoothing for triangle meshes"
 maintainer = "Geneustace Wicaksono <gjw62@cornell.edu>"
 type = "add-on"
+website = "https://github.com/SentientPlatypus/FourierMesh"
 
 blender_version_min = "4.2.0"
 

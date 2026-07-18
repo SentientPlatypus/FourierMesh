@@ -1,12 +1,6 @@
-"""FourierMesh -- graph-Laplacian spectral smoothing for Blender meshes.
+"""FourierMesh add-on: spectral smoothing and eigenmode visualization."""
 
-Self-contained add-on: runs on Blender's bundled numpy, no external deps.
-See ``blender/README.md`` for install and usage.
-"""
-
-# bl_info supports the legacy add-on installer (Blender 4.0-4.1 and drop-in
-# installs). Blender 4.2+ installs via the Extensions system and reads
-# blender_manifest.toml instead; bl_info is ignored there.
+# Legacy metadata; Blender 4.2+ reads blender_manifest.toml instead.
 bl_info = {
     "name": "FourierMesh",
     "author": "Geneustace Wicaksono",
